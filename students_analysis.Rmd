@@ -32,6 +32,7 @@ library(mgcv)
 
 
 
+
 #### Wczytanie zbioru danych
 
 ```{r}
@@ -44,6 +45,7 @@ unlink(temp_file)
 
 
 
+
 # 2. EDA
 
 Sprawdzamy strukture danych i podstawowe statystyki opisowe zmiennych.
@@ -52,6 +54,7 @@ Sprawdzamy strukture danych i podstawowe statystyki opisowe zmiennych.
 str(student_por)
 summary(student_por)
 ```
+
 
 
 
@@ -113,6 +116,7 @@ braki <- md.pattern(student_por, plot = TRUE, rotate.names = TRUE)
 
 
 
+
 W naszym zbiorze nie występują braki w danych. 
 
 #### Podział na zbiór treningowy (80%) i testowy (20%)
@@ -130,6 +134,7 @@ test_data  <- student_por[-train_indices, ]
 
 
 
+
 #### Macierz korelacji
 
 Zbadałyśmy korelacje pomiędzy zmiennymi numerycznymi za pomocą korelacji Spearmana
@@ -140,6 +145,7 @@ numeric_train <- train_data %>% select(where(is.numeric))
 #cor(numeric_train, method = "spearman")
 cor(numeric_train) |> corrplot()
 ```
+
 
 
 
@@ -156,6 +162,7 @@ print(wyniki_vif)
 
 
 
+
 Zmienne G1 oraz G2 (oceny cząstkowe z pierwszego i drugiego semestru) wykazują wysoką korelację ze zmienną celu G3. Wynika to z faktu, że ocena końcowa jest powiązana z ocenami cząstkowymi. Zmienne G1 i G2 zostały usunięte ze zbioru. Natomiast zmienne powiązane z alkoholem (Dalc i Walc) też wykazują zauważalną korelację, jednak ich VIF mieści się w bezpiecznym zakresie.
 
 Usunięcie G1 i G2 z modelu:
@@ -164,6 +171,7 @@ Usunięcie G1 i G2 z modelu:
 train_data <- train_data %>% select(-G1, -G2)
 test_data <- test_data %>% select(-G1, -G2)
 ```
+
 
 
 
@@ -178,6 +186,7 @@ cor(numeric_train) |> corrplot()
 
 
 
+
 VIF jeszcze raz
 
 ```{r}
@@ -186,6 +195,7 @@ full_model <- glm(G3 ~ ., data = train_data, family = poisson)
 wyniki_vif <- vif(full_model)
 print(wyniki_vif)
 ```
+
 
 
 
@@ -204,12 +214,14 @@ summary(full_model)
 
 
 
+
 Ponieważ model wykazałł znaczną liczbę nieistotnych statystycznie zmiennych, zastosowano algorytm eliminacji krokowej wstecz w celu doboru optymalnego zestawu cech w oparciu o kryterium AIC.
 
 ```{r}
 selected_glm_model <- step(full_model, direction = "backward", trace = 0)
 summary(selected_glm_model)
 ```
+
 
 
 
@@ -247,6 +259,7 @@ print(paste("Błąd testowy MAE:", round(mae_glm, 3)))
 
 
 
+
 Klasyczny model regresji pomylił się w przewidywaniu oceny ucznia średnio o 2.23 punktu.
 
 ## 3.2 Zregularyzowany model GLM (LASSO)
@@ -264,11 +277,13 @@ Y_test <- test_data$G3
 
 
 
+
 W celu wyznaczenia optymalnej siły kary $\lambda$, przeprowadzono 10-krotną kroswalidację na zbiorze treningowym przy założeniu rozkładu Poissona oraz parametru $\alpha = 1$.
 
 ```{r}
 cv_lasso <- cv.glmnet(X_train, Y_train, family = "poisson", alpha = 1)
 ```
+
 
 
 
@@ -278,6 +293,7 @@ Wykres błędu CV:
 plot(cv_lasso)
 best_lambda <- cv_lasso$lambda.min
 ```
+
 
 
 
@@ -308,6 +324,7 @@ legend("topleft", legend = c("lambda.min", "lambda.1se"),
 
 
 
+
 Zarówno w procesie CV na danych treningowych, jak i na zbiorze testowym, model nie wykazuje gwałtownego odchylenia dewiancji, co świadczy o dużej stabilności i generalizacji. Następnie sprawdziłyśmy jak kształtują się współczynniki w dwóch skrajnych punktach:
 
 ```{r}
@@ -315,6 +332,7 @@ wsp_lasso_1se <- predict(cv_lasso, s = cv_lasso$lambda.1se, type = "coefficients
 print("Współczynniki w modelu lambda.1se:")
 wsp_lasso_1se[wsp_lasso_1se != 0]
 ```
+
 
 
 
@@ -331,6 +349,7 @@ wspolczynniki_lasso <- predict(cv_lasso, s = cv_lasso$lambda.min, type = "coeffi
 print("Współczynniki modelu LASSO dla optymalnej Lambdy:")
 wspolczynniki_lasso[wspolczynniki_lasso !=0]
 ```
+
 
 
 
@@ -353,6 +372,7 @@ print(paste("Błąd testowy MAE dla LASSO:", round(mae_lasso, 3)))
 
 
 
+
 Model LASSO zoptymalizowany pod kątem absolutnego minimum błędu kroswalidacji uzyskał błąd testowy RMSE na poziomie 3.063 oraz MAE równe 2.178. W zestawieniu z klasycznym modelem GLM z selekcją krokową, zregularyzowany wariant wykazał się minimalnie lepszymi zdolnościami predykcyjnymi. Pokazuje to, że nałożenie optymalnej kary na współczynniki pomogło skutecznie zredukować szum, nieznacznie poprawiając uogólnianie modelu na nowych obserwacjach.
 
 Przeprowadziłyśmy też prognoze na zbiorze testowym dla modelu silnie zregularyzowanego:
@@ -367,6 +387,7 @@ mae_lasso  <- mean(abs(Y_test - predykcje_lasso))
 print(paste("Błąd testowy RMSE dla LASSO:", round(rmse_lasso, 3)))
 print(paste("Błąd testowy MAE dla LASSO:", round(mae_lasso, 3)))
 ```
+
 
 
 
@@ -386,6 +407,7 @@ drzewo_pelne <- rpart(G3 ~ ., data = train_data)
 
 
 
+
 Struktura dużego drzewa
 
 ```{r}
@@ -394,11 +416,13 @@ rpart.plot(drzewo_pelne, digits = 4)
 
 
 
+
 Drzewo decyzyjne, oprócz fizycznego podziału na gałęzie, analizuje globalną użyteczność każdej zmiennej w redukcji błędu. Poniższe zestawienie pokazuje, które zmienne miały największy wpływ na kształtowanie prognozy.
 
 ```{r}
 sort(drzewo_pelne$variable.importance, decreasing = TRUE)
 ```
+
 
 
 Zmienna failures wygenerowała wynik na poziomie ok. 1064, wyprzedzając kolejną cechę w rankingu ponad czterokrotnie. Pokazuje to, że wcześniejsze potknięcia w edukacji są głównym i najsilniejszym determinantem przyszłych wyników ucznia. Drugie miejsce zajęła zmienna higher, a trzecie schoolsup. Potwierdza to wnioski z modelu LASSO oraz GLM, chęć pójścia na studia ciągnie wyniki w górę, a przydzielone wsparcie szkolne często identyfikuje uczniów już borykających się z problemami.
@@ -412,6 +436,7 @@ drzewo_pelne$cptable
 
 
 
+
 Najpierw wyznaczamy parametry drzewa o minimalnym błędzie CV.
 
 ```{r}
@@ -422,12 +447,14 @@ cp_min
 
 
 
+
 Następnie przycięto drzewo do optymalnego rozmiaru minimalizującego błąd. Algorytm zredukował oryginalną strukturę do drzewa o 3 liściach
 
 ```{r}
 drzewo_pelne_pruned_min <- prune(drzewo_pelne, cp = cp_min)
 rpart.plot(drzewo_pelne_pruned_min)
 ```
+
 
 
 
@@ -445,12 +472,14 @@ cp_1se
 
 
 
+
 Przycięcie drzewa zgodnie z regułą 1 SE doprowadziło do stworzenia skrajnie prostego modelu decyzyjnego (o 2 liściach, zaledwie z jednym podziałem):
 
 ```{r}
 drzewo_pelne_pruned_1se <- prune(drzewo_pelne, cp = cp_1se)
 rpart.plot(drzewo_pelne_pruned_1se)
 ```
+
 
 
 
@@ -481,6 +510,7 @@ cat(sprintf("Model (1 SE)   MSE: %.3f | RMSE: %.3f | MAE: %.3f\n", mse_1se, rmse
 
 
 
+
 obydwa podejścia do przycięcia drzewa decyzyjnego nie dały najlepszych wyników predykcyjnych. Uzyskane błędy są zauważalnie gorsze od tych, które uzyskał klasyczny model GLM z selekcją krokową oraz zregularyzowany model LASSO. Pojedyncze drzewo decyzyjne jest po prostu modelem zbyt prostym, co bezpośrednio motywuje nas do zastosowania metody zespołowej w kolejnym kroku, aby ustabilizować predykcję.
 
 ## 3.4. Lasy Losowe
@@ -495,6 +525,7 @@ rf_model
 
 
 
+
 Wygenerowany zestaw 500 drzew decyzyjnych został zbudowany przy użyciu parametru mtry = 10 (co oznacza, że przy każdym pojedynczym podziale węzła, algorytm brał pod uwagę losową próbkę 10 z 30 dostępnych predyktorów). Model Lasów Losowych był w stanie wyjaśnić 36.22% wariancji zmiennej objaśnianej (G3).
 
 Wykres błędu OOB względem liczby drzew:
@@ -502,6 +533,7 @@ Wykres błędu OOB względem liczby drzew:
 ```{r}
 plot(rf_model, type = "l")
 ```
+
 
 
 
@@ -518,11 +550,13 @@ tail(waznosc_rf,5)
 
 
 
+
 To samo można przedstawić na wykresie:
 
 ```{r}
 varImpPlot(rf_model,n.var = 15)
 ```
+
 
 
 
@@ -538,6 +572,7 @@ partialPlot(rf_model, train_data, x.var = "failures")
 
 
 
+
 Największy spadek przewidywanej oceny (z poziomu ok. 12.5 punktu na ok. 9.6 punktu) następuje przy przejściu z zera na jedną porażkę. Pokazuje to, że sam fakt odnotowania jakiegokolwiek potknięcia w przeszłości jest najsilniejszym negatywnym sygnałem w danych. Kolejne odnotowane porażki nie powodują już dalszego, proporcjonalnego spadku oceny.
 
 b) higher
@@ -548,6 +583,7 @@ partialPlot(rf_model, train_data, x.var = "higher")
 
 
 
+
 Po uśrednieniu wpływu wszystkich pozostałych cech, uczeń deklarujący chęć podjęcia studiów wyższych osiąga przewidywaną ocenę na poziomie około 12 punktów. W przypadku braku takich planów, prognoza modelu skokowo spada do poziomu około 10.2 punktu.
 
 c) schoolsup
@@ -555,6 +591,7 @@ c) schoolsup
 ```{r}
 partialPlot(rf_model, train_data, x.var = "schoolsup")
 ```
+
 
 
 
@@ -575,6 +612,7 @@ print(paste("Błąd MAE dla Lasu Losowego:", round(mae_rf, 3)))
 
 
 
+
 Las Losowy zredukował błąd predykcji w porównaniu do pojedynczych drzew decyzyjnych. Pokazuje to, że uśrednienia prognoz z 500 zróżnicowanych drzew skutecznie zneutralizował problem wysokiej wariancji i przeuczenia. Osiągnięta precyzja postawiła Las Losowy na równi z najlepszymi modelami liniowymi.
 
 Mimo wysokiej celności i wybitnych zdolności do budowania rankingów zmiennych, Las Losowy pozostaje algorytmem typu "czarna skrzynka", gdyż nie dostarcza on bezpośredniego, jawnego równania matematycznego opisującego wpływ predyktorów na wynik. Aby zidentyfikować dokładne, nieliniowe punkty załamań dla kluczowych zmiennych w sposób w pełni interpretowalny, w kolejnym kroku zastosowano metodę MARS.
@@ -589,6 +627,7 @@ MARS z poziomem interakcji 2 (pozwalamy algorytmowi MARS na tworzenie interakcji
 mars_model <- earth(G3 ~ ., data = train_data, degree = 2)
 summary(mars_model)
 ```
+
 
 
 
@@ -613,12 +652,14 @@ evimp(mars_model) |> plot()
 
 
 
+
 Predyktor dotyczący wcześniejszych porażek zajmuje najwyższe możliwe pozycje we wszystkich trzech kategoriach. Został on użyty w największej liczbie podzbiorów i odpowiada za największy spadek błędu GCV oraz RSS. Oznacza to, że funkcja zawiasowa oparta na porażkach stanowi główny fundament matematyczny zbudowanego modelu. Na kolejnych miejscach, ze znacznym spadkiem, ale wciąż bardzo wyraźnym wpływem na redukcję błędu, plasują się zmienne: higheryes (chęć pójścia na studia), schoolMS (przynależność do szkoły), studytime oraz schoolsupyes.
 Ranking wygenerowany przez nieliniowy algorytm MARS niemal w 100% pokrywa się z wynikami zregularyzowanego modelu LASSO oraz zestawieniem predyktorów z Lasów Losowych. 
 
 ```{r}
 plotmo(mars_model, pmethod = "partdep", degree1 = c("failures", "higher", "school"))
 ```
+
 
 
 
@@ -645,6 +686,7 @@ print(paste("Błąd MAE dla modelu MARS:", round(mae_mars, 3)))
 
 
 
+
 Model MARS osiągnął jakość predykcji bardzo zbliżoną do Lasów Losowych (RMSE 3.088) oraz regresji LASSO (RMSE 3.063). Jest to model użyteczny, gdyż jest tak samo skuteczny jak modele czarnoskrzynkowe, a jednocześnie oferuje zrozumiałość modelu liniowego, co czyni go modelem najbardziej użytecznym z perspektywy interpretacji danych.
 
 ## 3.6 Model GAM 
@@ -665,6 +707,7 @@ summary(model_gam)
 
 
 
+
 Wszystkie zmienne kategoryczne zachowały bardzo wysoką istotność statystyczną ($p < 0.001$).
  - higheryes: Premia edukacyjna wynosząca skokowo +1.84 pkt dla uczniów planujących studia
  - schoolMS i schoolsupyes: Kary punktowe wynoszące odpowiednio -1.10 pkt oraz -1.62 pkt, potwierdzające dotychczasowe wnioski o specyfice tej szkoły oraz profilu ucznia korzystającego z dodatkowego wsparcia.
@@ -674,6 +717,7 @@ Wykresy częściowej zależności:
 ```{r}
 plot(model_gam, col = "green", se = TRUE)
 ```
+
 
 
 
@@ -697,6 +741,7 @@ print(paste("Błąd MAE dla modelu GAM:", round(mae_gam, 3)))
 
 
 
+
 Wynik GAM udowadnia, że zastosowanie płynnych, elastycznych krzywych sprawdziło się na nowych danych lepiej niż sztywne, twarde punkty odcięcia z modelu MARS.
 
 ## 3.7 Podsumowanie wyników
@@ -717,6 +762,7 @@ tabela_wynikow <- data.frame(
 
 knitr::kable(tabela_wynikow, digits = 3, align = "llcc")
 ```
+
 
 
 
@@ -751,6 +797,7 @@ test_cls  <- test_data |> select(-G3)
 ```
 
 
+
 ## 4.1 Model regresji logistycznej - GLM z selekcją krokową
 
 Zaczęłyśmy od pełnego modelu, wykorzystującego wszystkie dostępne predyktory
@@ -762,12 +809,14 @@ summary(pass_logistic_full)
 
 
 
+
 Ponieważ model wykazał znaczną liczbę nieistotnych statystycznie zmiennych, podobie jak w modelu regresji, zastosowano algorytm eliminacji krokowej wstecz w celu doboru optymalnego zestawu cech w oparciu o kryterium AIC.
 
 ```{r}
 pass_logistic_fit <- step(pass_logistic_full, direction = "backward", trace = 0)
 summary(pass_logistic_fit)
 ```
+
 
 
 Analiza predykcji
@@ -779,11 +828,13 @@ head(pass_logistic_predicted)
 ```
 
 
+
 Upewnienie się, że $Y = 1$ oznacza `Pass == "Pass"`
 
 ```{r}
 contrasts(train_data$Pass)
 ```
+
 
 
 Interpretacja współczynników odnosi się do zmiany szans uzyskania wyniku pozytywnego (ocena końcowa co najmniej 10 punktów) przy zmianie predyktora o jednostkę, przy zachowaniu pozostałych zmiennych na stałym poziomie.
@@ -814,11 +865,13 @@ pass_logistic_cm
 ```
 
 
+
 Proporcja błędów
 
 ```{r}
 mean(pass_logistic_predicted != test_data$Pass)
 ```
+
 
 
 Klasyczny model regresji logistycznej pomylił się w ok. 18% przypadków. Model wykazuje bias w kierunku klasy "Pass", co jest uzasadnione większą licznością tej klasy w datasecie.
@@ -835,6 +888,7 @@ fit_lasso <- cv.glmnet(train_X, train_y, family = "binomial")
 best_lambda <- fit_lasso$lambda.min
 plot(fit_lasso, xvar = "lambda", sign.lambda = 1)
 ```
+
 
 Z wykresu można odczytać, że niewiela regularyzacja poprawiła generalizację modelu. Optymalny poziom regularyzacji został osiągnięty dla log(lambda) = -3.75. Gwałtowny wzrost funkcji za tą wartością oznacza zbyt silną regularyzację, która pogarsza wydajność modelu.
 
@@ -867,6 +921,7 @@ coef(fit_lasso, s = "lambda.min")
 ```
 
 
+
 Model zmniejszył wagi większości predyktorów, pozostawiając 3 z nich jako kluczowe:
 - `higher` - uczniowie ambitni statystycznie częściej zdają
 - `school` - przynależność do szkoły MS statystycznie wiąże się z większym ryzykiem niezdania
@@ -893,6 +948,7 @@ lasso_preds <- ifelse(lasso_probs > 0.5, "Pass", "Fail")
 ```
 
 
+
 ### Obliczenie błędów predykcji
 
 Macierz pomyłek
@@ -903,11 +959,13 @@ pass_lasso_cm
 ```
 
 
+
 Proporcja błędów
 
 ```{r}
 mean(lasso_preds != test_data$Pass)
 ```
+
 
 
 Model regresji grzbietowej pomylił się w ok. 16% przypadków, jednak w żadnym przypadu nie przewidywał klasy "Failed".
@@ -925,11 +983,13 @@ text(pass_rpart, pretty = 0)
 ```
 
 
+
 Ważność predyktorów
 
 ```{r}
 pass_rpart$variable.importance
 ```
+
 
 
 Najważniejszymi predyktorami były kolejno:
@@ -961,6 +1021,7 @@ printcp(pass_rpart)
 ```
 
 
+
 Wyznaczyłyśmy parametry drzewa o minimalnym błędzie CV (8 liści)
 
 ```{r}
@@ -977,6 +1038,7 @@ rpart.plot(pass_rpart_pruned)
 ```{r}
 printcp(pass_rpart_pruned)
 ```
+
 
 W przeciwieństwie do modeli liniowych, wpływ zmiennych ma charakter nieliniowy i progowy (threshold-based), a znaczenie zmiennej wynika z jej udziału w podziałach drzewa oraz redukcji błędu klasyfikacji.
 
@@ -1028,11 +1090,13 @@ pass_rpart_cm
 ```
 
 
+
 Proporcja błędów
 
 ```{r}
 mean(pass_rpart_pruned_predicted != test_data$Pass)
 ```
+
 
 
 Model drzewa decyzyjnego pomylił się w ok. 18% przypadków.
@@ -1047,6 +1111,7 @@ summary(pass_mars)
 ```
 
 
+
 Wykresy:
 
 * wykres selecji modelu
@@ -1057,6 +1122,7 @@ Wykresy:
 ```{r}
 plot(pass_mars)
 ```
+
 
 
 Ważność predyktorów
@@ -1071,11 +1137,13 @@ plot(pass_mars_evimp)
 ```
 
 
+
 Wykresy częściowej zależności
 
 ```{r}
 plotmo(pass_mars, pmethod = "partdep", degree1 = c("failures", "higher"))
 ```
+
 
 Model ma charakter fragmentami liniowy, z automatyczną selekcją zmiennych i interakcji. Wpływy należy interpretować przez funkcje bazowe (hinge functions) oraz znaki współczynników.
 
@@ -1125,11 +1193,13 @@ pass_mars_cm
 ```
 
 
+
 Proporcja błędów
 
 ```{r}
 mean(mars_pred != test_data$Pass)
 ```
+
 
 
 MARS pomylił się w ok. 14% przypadków.
@@ -1144,6 +1214,7 @@ pass_rf
 ```
 
 
+
 Wykres błędu OOB względem liczby drzew. 3 krzywe błędu:
 
 - czarna - dla ogólnej proporcji błędnych klasyfikacji
@@ -1155,6 +1226,7 @@ plot(pass_rf, type = "l")
 ```
 
 
+
 Ważnosć predyktorów
 
 ```{r}
@@ -1164,6 +1236,7 @@ importance(pass_rf)
 ```{r}
 varImpPlot(pass_rf)
 ```
+
 
 Wpływ zmiennych jest nieliniowy, interakcyjny i lokalny (różny w różnych fragmentach przestrzeni cech), a jego istotność ocenianiona została przez redukcję nieczystości lub spadek jakości po permutacji.
 
@@ -1196,11 +1269,13 @@ pass_rf$confusion
 ```
 
 
+
 Proporcja błędów
 
 ```{r}
 1 - sum(diag(pass_rf$confusion[, -ncol(pass_rf$confusion)])) / sum(pass_rf$confusion[, -ncol(pass_rf$confusion)])
 ```
+
 
 
 Model lasu losowego pomylił się w ok. 15% przypadków.
@@ -1226,6 +1301,7 @@ summary(model_gam)
 ```{r}
 plot(model_gam, se = TRUE)
 ```
+
 
 
 
@@ -1281,11 +1357,13 @@ gam_confusion
 ```
 
 
+
 Proporcja błędów
 
 ```{r}
 mean(gam_pred != test_cls$Pass)
 ```
+
 
 
 Model lasu losowego pomylił się w ok. 13% przypadków.
@@ -1384,7 +1462,8 @@ knitr::kable(
 ```
 
 
-Najwyższą skuteczność klasyfikacji osiągnął model GAM (Accuracy = 86.9%, F1 = 0.927), co wskazuje, że część zależności pomiędzy cechami ucznia a prawdopodobieństwem sukcesu edukacyjnego ma charakter nieliniowy. Bardzo zbliżone wyniki uzyskały również MARS oraz regresja logistyczna, co sugeruje, że dominujące zależności w danych są jednak w dużej mierze liniowe.
+
+Najwyższą skuteczność klasyfikacji osiągnął model GAM (Accuracy = 86.9%, F1 = 0.927). Bardzo wysokie wyniki uzyskały również MARS oraz regresja logistyczna, co wskazuje, że dominujące zależności w danych są liniowe.
 
 Model LASSO nie poprawił jakości klasyfikacji względem zwykłej regresji logistycznej, co oznacza, że regularyzacja nie przyniosła w tym przypadku istotnych korzyści. Najsłabsze wyniki uzyskało pojedyncze drzewo decyzyjne, natomiast Lasy Losowe poprawiły skuteczność dzięki agregacji wielu drzew, osiągając jednocześnie najwyższą precyzję (Precision = 0.977).
 
